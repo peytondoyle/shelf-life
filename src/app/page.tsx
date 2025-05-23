@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
+import { Book } from '@/types'
 import BookEntryForm from '@/app/components/BookEntryForm'
 import BookTable from '@/app/components/BookTable'
 
 export default function HomePage() {
-  const [books, setBooks] = useState<any[]>([])
+  const [books, setBooks] = useState<Book[]>([])
   const [loading, setLoading] = useState(false)
 
   const fetchBooks = async () => {
@@ -16,7 +17,12 @@ export default function HomePage() {
       .select('*')
       .order('created_at', { ascending: false })
 
-    if (!error) setBooks(data || [])
+    if (error) {
+      console.error('Failed to fetch books:', error.message)
+    } else {
+      setBooks(data || [])
+    }
+
     setLoading(false)
   }
 

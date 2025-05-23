@@ -1,6 +1,16 @@
 // File: src/app/api/book-metadata/route.ts
 import { NextResponse } from 'next/server'
 
+interface OpenLibraryDoc {
+  title?: string
+  author_name?: string[]
+  first_publish_year?: number
+  edition_count?: number
+  ratings_average?: number
+  cover_i?: number
+  language?: string[]
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const title = searchParams.get('title') ?? ''
@@ -10,7 +20,7 @@ export async function GET(request: Request) {
     const params = new URLSearchParams()
     if (title) params.append('title', title)
     if (author) params.append('author', author)
-    params.append('limit', '20')
+    params.append('limit', '40')
     return `https://openlibrary.org/search.json?${params.toString()}`
   }
 
@@ -23,10 +33,11 @@ export async function GET(request: Request) {
       data = await res.json()
     }
 
+    const docs: OpenLibraryDoc[] = data.docs
     const queryWords = title.toLowerCase().split(/\s+/)
 
-    const scoredDocs = data.docs
-      .map((doc: any) => {
+    const scoredDocs = docs
+      .map((doc) => {
         const titleTokens = (doc.title ?? '').toLowerCase().split(/\s+/)
         const titleMatchScore = queryWords.reduce(
           (acc, word) => acc + (titleTokens.includes(word) ? 1 : 0),
@@ -37,25 +48,25 @@ export async function GET(request: Request) {
           titleMatchScore * 2 +
           (doc.edition_count ?? 0) * 0.5 +
           (doc.ratings_average ?? 0) +
-          (doc.cover_i ? 1 : 0) + 
+          (doc.cover_i ? 1 : 0) +
           (Array.isArray(doc.language) && doc.language.includes('eng') ? 1 : 0)
-        
-          return { ...doc, _score: score }
+
+        return { ...doc, _score: score }
       })
-      .sort((a: any, b: any) => b._score - a._score)
+      .sort((a, b) => b._score - a._score)
 
     const imageSet = new Set<number>()
     const imageOptions: string[] = []
 
     for (const doc of scoredDocs) {
-    if (doc.cover_i && !imageSet.has(doc.cover_i)) {
+      if (doc.cover_i && !imageSet.has(doc.cover_i)) {
         imageSet.add(doc.cover_i)
         imageOptions.push(`https://covers.openlibrary.org/b/id/${doc.cover_i}-L.jpg`)
-    }
-    if (imageOptions.length >= 4) break
+      }
+      if (imageOptions.length >= 5) break
     }
 
-    const bestDoc = scoredDocs[0] ?? data.docs[0]
+    const bestDoc = scoredDocs[0] ?? docs[0]
 
     const result = {
       title: bestDoc?.title ?? '',
