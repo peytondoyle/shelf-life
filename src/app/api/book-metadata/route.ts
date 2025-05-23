@@ -10,7 +10,7 @@ export async function GET(request: Request) {
     const params = new URLSearchParams()
     if (title) params.append('title', title)
     if (author) params.append('author', author)
-    params.append('limit', '1')
+    params.append('limit', '10')
     return `https://openlibrary.org/search.json?${params.toString()}`
   }
 
@@ -22,17 +22,28 @@ export async function GET(request: Request) {
       res = await fetch(buildUrl(title))
       data = await res.json()
     }
+    
+    const scoredDocs = data.docs.map((doc: any) => {
+    const score =
+        (doc.edition_count ?? 0) * 1.5 +
+        (doc.ratings_average ?? 0) * 2 +
+        (doc.has_fulltext ? 1 : 0) +
+        (doc.isbn?.length ?? 0) * 0.5
+    return { ...doc, _score: score }
+    }).sort((a: any, b: any) => b._score - a._score)
 
-    const doc = data.docs?.[0]
-    if (!doc) return NextResponse.json({}, { status: 200 })
+    const imageOptions = scoredDocs
+    .filter((doc: any) => doc.cover_i)
+    .slice(0, 5)
+    .map((doc: any) => `https://covers.openlibrary.org/b/id/${doc.cover_i}-L.jpg`)
 
+    const bestDoc = scoredDocs[0] ?? data.docs[0]
     const result = {
-      title: doc.title ?? '',
-      author: doc.author_name?.[0] ?? '',
-      publishedYear: doc.first_publish_year ?? null,
-      coverImage: doc.cover_i
-        ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-L.jpg`
-        : null,
+      title: bestDoc?.title ?? '',
+      author: bestDoc?.author_name?.[0] ?? '',
+      publishedYear: bestDoc?.first_publish_year ?? null,
+      coverImage: bestDoc?.cover_i ? `https://covers.openlibrary.org/b/id/${bestDoc.cover_i}-L.jpg` : null,
+      imageOptions,
     }
 
     return NextResponse.json(result)
