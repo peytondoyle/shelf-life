@@ -10,6 +10,8 @@ type Book = {
   format: 'audiobook' | 'print'
   status: 'read' | 'tbr' | 'dnf'
   created_at: string
+  published_year?: number | null
+  cover_image?: string | null
 }
 
 const formatBadge = (format: Book['format']) => {
@@ -59,18 +61,30 @@ export default function BookTable() {
           <table className="min-w-full bg-white">
             <thead className="bg-gray-50">
               <tr>
+                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Cover</th>
                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Title</th>
                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Author</th>
                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Format</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Year</th>
                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Status</th>
               </tr>
             </thead>
             <tbody>
               {books.map((book, idx) => (
                 <tr key={book.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                  <td className="px-4 py-3">
+                    {book.cover_image ? (
+                        <img src={book.cover_image} alt={book.title} className="w-10 h-auto rounded" />
+                    ) : (
+                        <span className="text-gray-400 italic">—</span>
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-sm text-gray-800">{book.title}</td>
                   <td className="px-4 py-3 text-sm text-gray-700">{book.author}</td>
                   <td className="px-4 py-3">{formatBadge(book.format)}</td>
+                  <td className="px-4 py-3 text-sm text-gray-700">
+                    {book.published_year ?? <span className="text-gray-400 italic">—</span>}
+                  </td>
                   <td className="px-4 py-3">{statusBadge(book.status)}</td>
                 </tr>
               ))}

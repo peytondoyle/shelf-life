@@ -2,25 +2,84 @@
 
 import { useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
+import { fetchBookData } from '@/lib/fetchBookData'
 
 export default function BookEntryForm() {
   const [title, setTitle] = useState('')
   const [author, setAuthor] = useState('')
   const [format, setFormat] = useState<'audiobook' | 'print'>('audiobook')
   const [status, setStatus] = useState<'read' | 'tbr' | 'dnf'>('tbr')
+  const [cover, setCover] = useState('')
+  const [year, setYear] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [success, setSuccess] = useState(false)
+  const [autofillStatus, setAutofillStatus] = useState({
+    title: 'idle',
+    author: 'idle',
+    year: 'idle',
+    cover: 'idle'
+  })
+
+  const handleAutofill = async () => {
+  const trimmedTitle = title.trim();
+  const trimmedAuthor = author.trim();
+
+  console.log('Autofill triggered with:', { trimmedTitle, trimmedAuthor });
+
+  if (!trimmedTitle || !trimmedAuthor) {
+    alert("Please enter both Title and Author before autofill.");
+    return;
+  }
+
+  setAutofillStatus({
+    title: 'loading',
+    author: 'loading',
+    year: 'loading',
+    cover: 'loading',
+  });
+
+  const metadata = await fetchBookData(trimmedTitle, trimmedAuthor);
+
+  if (metadata) {
+    setAutofillStatus({
+      title: metadata.title ? 'success' : 'error',
+      author: metadata.author ? 'success' : 'error',
+      year: metadata.publishedYear ? 'success' : 'error',
+      cover: metadata.coverImage ? 'success' : 'error',
+    });
+
+    if (metadata.title) setTitle(metadata.title);
+    if (metadata.author) setAuthor(metadata.author);
+    if (metadata.publishedYear) setYear(metadata.publishedYear.toString());
+    if (metadata.coverImage) setCover(metadata.coverImage);
+  } else {
+    setAutofillStatus({
+      title: 'error',
+      author: 'error',
+      year: 'error',
+      cover: 'error',
+    });
+  }
+};
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
 
+    const metadata = await fetchBookData(title, author)
+
     const { error } = await supabase.from('books').insert([
-      { title, author, format, status },
+      {
+        title,
+        author,
+        format,
+        status,
+        published_year: metadata?.publishedYear || year || null,
+        cover_image: metadata?.coverImage || cover || null,
+      },
     ])
 
     setIsSubmitting(false)
-
     if (error) {
       alert('Error adding book: ' + error.message)
     } else {
@@ -29,14 +88,55 @@ export default function BookEntryForm() {
       setAuthor('')
       setStatus('tbr')
       setFormat('audiobook')
+      setCover('')
+      setYear('')
     }
   }
 
+  const progress = Object.values(autofillStatus).filter(s => s === 'success').length / 4 * 100
+
   return (
-    <div className="bg-gray-50 border border-gray-200 shadow-sm rounded-xl px-6 py-6 mb-12">
+    <div className="relative bg-gray-50 border border-gray-200 shadow-sm rounded-xl px-6 py-6 mb-12">
       <h2 className="text-xl font-semibold mb-6 text-gray-900 flex items-center gap-2">
         📚 Add a Book
       </h2>
+
+      {/* Autofill Progress Panel */}
+      <div className="mb-4">
+        <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden">
+          <div
+            className="bg-blue-500 h-full transition-all duration-500"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+        <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
+          {['title', 'author', 'year', 'cover'].map((field) => (
+            <div key={field} className="flex items-center gap-2">
+              <span className="capitalize w-12">{field}</span>
+              {autofillStatus[field as keyof typeof autofillStatus] === 'success' && (
+                <span className="text-green-600">✓</span>
+              )}
+              {autofillStatus[field as keyof typeof autofillStatus] === 'loading' && (
+                <span className="text-blue-600 animate-pulse">…</span>
+              )}
+              {autofillStatus[field as keyof typeof autofillStatus] === 'error' && (
+                <span className="text-red-600">×</span>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Autofill Trigger */}
+      <div className="flex justify-end mb-2">
+        <button
+          type="button"
+          onClick={handleAutofill}
+          className="text-sm text-blue-600 hover:underline"
+        >
+          Autofill Metadata
+        </button>
+      </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
