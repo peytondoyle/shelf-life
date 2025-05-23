@@ -3,8 +3,17 @@
 import { useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { fetchBookData } from '@/lib/fetchBookData'
+import { toast } from 'sonner'
+import MetadataOverlay from './MetadataOverlay'
+import ConfirmMetadataModal from './ConfirmMetadataModal'
 
-export default function BookEntryForm() {
+
+interface BookEntryFormProps {
+  onBookAdded: () => void
+}
+
+export default function BookEntryForm({ onBookAdded }: BookEntryFormProps) {
+  const [showSuccess, setShowSuccess] = useState(false)
   const [title, setTitle] = useState('')
   const [author, setAuthor] = useState('')
   const [format, setFormat] = useState<'audiobook' | 'print'>('audiobook')
@@ -12,131 +21,118 @@ export default function BookEntryForm() {
   const [cover, setCover] = useState('')
   const [year, setYear] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [success, setSuccess] = useState(false)
-  const [autofillStatus, setAutofillStatus] = useState({
+
+  const [showOverlay, setShowOverlay] = useState(false)
+  const [metadataStatus, setMetadataStatus] = useState({
     title: 'idle',
     author: 'idle',
     year: 'idle',
-    cover: 'idle'
+    cover: 'idle',
   })
+  const [showConfirmModal, setShowConfirmModal] = useState(false)
+  const [metadataCandidate, setMetadataCandidate] = useState<any>(null)
 
-  const handleAutofill = async () => {
-  const trimmedTitle = title.trim();
-  const trimmedAuthor = author.trim();
-
-  console.log('Autofill triggered with:', { trimmedTitle, trimmedAuthor });
-
-  if (!trimmedTitle || !trimmedAuthor) {
-    alert("Please enter both Title and Author before autofill.");
-    return;
+  const updateStatus = (field: string, state: 'idle' | 'loading' | 'success' | 'error') => {
+    setMetadataStatus((prev) => ({ ...prev, [field]: state }))
   }
-
-  setAutofillStatus({
-    title: 'loading',
-    author: 'loading',
-    year: 'loading',
-    cover: 'loading',
-  });
-
-  const metadata = await fetchBookData(trimmedTitle, trimmedAuthor);
-
-  if (metadata) {
-    setAutofillStatus({
-      title: metadata.title ? 'success' : 'error',
-      author: metadata.author ? 'success' : 'error',
-      year: metadata.publishedYear ? 'success' : 'error',
-      cover: metadata.coverImage ? 'success' : 'error',
-    });
-
-    if (metadata.title) setTitle(metadata.title);
-    if (metadata.author) setAuthor(metadata.author);
-    if (metadata.publishedYear) setYear(metadata.publishedYear.toString());
-    if (metadata.coverImage) setCover(metadata.coverImage);
-  } else {
-    setAutofillStatus({
-      title: 'error',
-      author: 'error',
-      year: 'error',
-      cover: 'error',
-    });
-  }
-};
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
+    setShowOverlay(true)
 
-    const metadata = await fetchBookData(title, author)
+    updateStatus('title', 'loading')
+    updateStatus('author', 'loading')
+    updateStatus('year', 'loading')
+    updateStatus('cover', 'loading')
 
-    const { error } = await supabase.from('books').insert([
-      {
-        title,
-        author,
-        format,
-        status,
-        published_year: metadata?.publishedYear || year || null,
-        cover_image: metadata?.coverImage || cover || null,
-      },
-    ])
+    const metadata = await fetchBookData(title.trim(), author.trim())
 
+    if (metadata) {
+      setMetadataCandidate(metadata)
+      if (
+        metadata.title.toLowerCase() !== title.trim().toLowerCase() ||
+        metadata.author.toLowerCase() !== author.trim().toLowerCase()
+      ) {
+        setShowConfirmModal(true)
+        setIsSubmitting(false)
+        return
+      }
+      applyMetadata(metadata)
+    }
+
+    finalizeSubmission()
+  }
+
+  const applyMetadata = (metadata: any) => {
+    if (metadata.title) {
+      setTitle(metadata.title)
+      updateStatus('title', 'success')
+    } else updateStatus('title', 'error')
+
+    if (metadata.author) {
+      setAuthor(metadata.author)
+      updateStatus('author', 'success')
+    } else updateStatus('author', 'error')
+
+    if (metadata.publishedYear) {
+      setYear(metadata.publishedYear.toString())
+      updateStatus('year', 'success')
+    } else updateStatus('year', 'error')
+
+    if (metadata.coverImage) {
+      setCover(metadata.coverImage)
+      updateStatus('cover', 'success')
+    } else updateStatus('cover', 'error')
+  }
+
+  const finalizeSubmission = async (overrideMetadata?: any) => {
+    const book = {
+      title: overrideMetadata?.title || title,
+      author: overrideMetadata?.author || author,
+      format,
+      status,
+      published_year: overrideMetadata?.publishedYear?.toString() || year || null,
+      cover_image: overrideMetadata?.coverImage || cover || null,
+    }
+
+    const { error } = await supabase.from('books').insert([book])
+
+    setShowOverlay(false)
     setIsSubmitting(false)
+
     if (error) {
       alert('Error adding book: ' + error.message)
     } else {
-      setSuccess(true)
       setTitle('')
       setAuthor('')
       setStatus('tbr')
       setFormat('audiobook')
       setCover('')
       setYear('')
+      onBookAdded() // 🔁 notify parent to refresh book list
+      toast.success('Book added successfully!')
     }
   }
 
-  const progress = Object.values(autofillStatus).filter(s => s === 'success').length / 4 * 100
+  const handleConfirm = (accept: boolean) => {
+    setShowConfirmModal(false)
+    if (accept && metadataCandidate) {
+      applyMetadata(metadataCandidate)
+      finalizeSubmission(metadataCandidate)
+    } else {
+      finalizeSubmission()
+    }
+  }
 
   return (
     <div className="relative bg-gray-50 border border-gray-200 shadow-sm rounded-xl px-6 py-6 mb-12">
+    {showSuccess && (
+    <p className="text-sm text-green-600 mt-4">✅ Book added successfully!</p>
+    )}
       <h2 className="text-xl font-semibold mb-6 text-gray-900 flex items-center gap-2">
         📚 Add a Book
       </h2>
-
-      {/* Autofill Progress Panel */}
-      <div className="mb-4">
-        <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden">
-          <div
-            className="bg-blue-500 h-full transition-all duration-500"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-        <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
-          {['title', 'author', 'year', 'cover'].map((field) => (
-            <div key={field} className="flex items-center gap-2">
-              <span className="capitalize w-12">{field}</span>
-              {autofillStatus[field as keyof typeof autofillStatus] === 'success' && (
-                <span className="text-green-600">✓</span>
-              )}
-              {autofillStatus[field as keyof typeof autofillStatus] === 'loading' && (
-                <span className="text-blue-600 animate-pulse">…</span>
-              )}
-              {autofillStatus[field as keyof typeof autofillStatus] === 'error' && (
-                <span className="text-red-600">×</span>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Autofill Trigger */}
-      <div className="flex justify-end mb-2">
-        <button
-          type="button"
-          onClick={handleAutofill}
-          className="text-sm text-blue-600 hover:underline"
-        >
-          Autofill Metadata
-        </button>
-      </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
@@ -164,41 +160,27 @@ export default function BookEntryForm() {
         <div className="flex flex-col sm:flex-row sm:items-end sm:gap-6">
           <div className="flex-1">
             <label className="block text-sm font-medium text-gray-700 mb-1">Format</label>
-            <div className="relative">
-              <select
-                value={format}
-                onChange={(e) => setFormat(e.target.value as 'audiobook' | 'print')}
-                className="appearance-none w-full h-[38px] pl-3 pr-10 text-sm border border-gray-300 rounded-md shadow-sm bg-white focus:outline-none focus:ring-1 focus:ring-gray-700 focus:border-gray-700"
-              >
-                <option value="audiobook">Audiobook</option>
-                <option value="print">Print</option>
-              </select>
-              <div className="absolute inset-y-0 right-3 flex items-center">
-                <svg className="h-4 w-4 text-gray-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                </svg>
-              </div>
-            </div>
+            <select
+              value={format}
+              onChange={(e) => setFormat(e.target.value as 'audiobook' | 'print')}
+              className="appearance-none w-full h-[38px] pl-3 pr-10 text-sm border border-gray-300 rounded-md shadow-sm bg-white focus:outline-none focus:ring-1 focus:ring-gray-700 focus:border-gray-700"
+            >
+              <option value="audiobook">Audiobook</option>
+              <option value="print">Print</option>
+            </select>
           </div>
 
           <div className="flex-1 mt-4 sm:mt-0">
             <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-            <div className="relative">
-              <select
-                value={status}
-                onChange={(e) => setStatus(e.target.value as 'read' | 'tbr' | 'dnf')}
-                className="appearance-none w-full h-[38px] pl-3 pr-10 text-sm border border-gray-300 rounded-md shadow-sm bg-white focus:outline-none focus:ring-1 focus:ring-gray-700 focus:border-gray-700"
-              >
-                <option value="tbr">To Be Read</option>
-                <option value="read">Read</option>
-                <option value="dnf">Did Not Finish</option>
-              </select>
-              <div className="absolute inset-y-0 right-3 flex items-center">
-                <svg className="h-4 w-4 text-gray-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                </svg>
-              </div>
-            </div>
+            <select
+              value={status}
+              onChange={(e) => setStatus(e.target.value as 'read' | 'tbr' | 'dnf')}
+              className="appearance-none w-full h-[38px] pl-3 pr-10 text-sm border border-gray-300 rounded-md shadow-sm bg-white focus:outline-none focus:ring-1 focus:ring-gray-700 focus:border-gray-700"
+            >
+              <option value="tbr">To Be Read</option>
+              <option value="read">Read</option>
+              <option value="dnf">Did Not Finish</option>
+            </select>
           </div>
         </div>
 
@@ -210,6 +192,16 @@ export default function BookEntryForm() {
           {isSubmitting ? 'Adding...' : 'Add Book'}
         </button>
       </form>
+
+      {showOverlay && <MetadataOverlay status={metadataStatus} />}
+      {showConfirmModal && metadataCandidate && (
+        <ConfirmMetadataModal
+          title={metadataCandidate.title}
+          author={metadataCandidate.author}
+          onConfirm={() => handleConfirm(true)}
+          onCancel={() => handleConfirm(false)}
+        />
+      )}
     </div>
   )
 }

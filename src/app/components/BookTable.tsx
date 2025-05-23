@@ -1,8 +1,5 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabaseClient'
-
 type Book = {
   id: string
   title: string
@@ -12,6 +9,11 @@ type Book = {
   created_at: string
   published_year?: number | null
   cover_image?: string | null
+}
+
+interface BookTableProps {
+  books: Book[]
+  loading: boolean
 }
 
 const formatBadge = (format: Book['format']) => {
@@ -29,26 +31,7 @@ const statusBadge = (status: Book['status']) => {
   }
 }
 
-export default function BookTable() {
-  const [books, setBooks] = useState<Book[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    const fetchBooks = async () => {
-      const { data, error } = await supabase
-        .from('books')
-        .select('*')
-        .order('created_at', { ascending: false })
-
-      if (!error && data) {
-        setBooks(data as Book[])
-      }
-      setLoading(false)
-    }
-
-    fetchBooks()
-  }, [])
-
+export default function BookTable({ books, loading }: BookTableProps) {
   return (
     <div className="mt-12">
       <h2 className="text-xl font-semibold mb-4 text-gray-900">📚 Your Books</h2>
@@ -74,9 +57,13 @@ export default function BookTable() {
                 <tr key={book.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                   <td className="px-4 py-3">
                     {book.cover_image ? (
-                        <img src={book.cover_image} alt={book.title} className="w-10 h-auto rounded" />
+                      <img
+                        src={book.cover_image}
+                        alt={book.title}
+                        className="w-10 h-auto rounded"
+                      />
                     ) : (
-                        <span className="text-gray-400 italic">—</span>
+                      <span className="text-gray-400 italic">—</span>
                     )}
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-800">{book.title}</td>
