@@ -1,3 +1,4 @@
+// File: src/app/components/BookEntryForm.tsx
 'use client'
 
 import { useState, useRef } from 'react'
@@ -36,6 +37,7 @@ export default function BookEntryForm({ onBookAdded }: { onBookAdded: () => void
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (isSubmitting) return
     setIsSubmitting(true)
     setShowOverlay(true)
     setMetadataStatus((prev) => ({ ...prev, message: 'Searching Open Library…' }))
@@ -54,11 +56,13 @@ export default function BookEntryForm({ onBookAdded }: { onBookAdded: () => void
       setMetadataCandidate(metadata)
       setSelectedImage(metadata.coverImage || null)
       setShowConfirmModal(true)
+      setIsSubmitting(false)
+      return
     } else {
-      finalizeSubmission()
+      toast.error('Could not find metadata.')
+      setIsSubmitting(false)
+      setShowOverlay(false)
     }
-
-    setIsSubmitting(false)
   }
 
   const applyMetadata = (metadata: BookMetadata, image?: string | null) => {
@@ -117,14 +121,36 @@ export default function BookEntryForm({ onBookAdded }: { onBookAdded: () => void
 
   const handleConfirm = (img: string | null) => {
     setShowConfirmModal(false)
+
+    if (img === null) {
+        // Clear form on cancel
+        setTitle('')
+        setAuthor('')
+        setFormat('audiobook')
+        setStatus('tbr')
+        setCover('')
+        setYear('')
+        setSelectedImage(null)
+        setMetadataCandidate(null)
+        setShowOverlay(false)
+        setMetadataStatus({
+        title: 'idle',
+        author: 'idle',
+        year: 'idle',
+        cover: 'idle',
+        message: '',
+        })
+        return
+    }
+
     setSelectedImage(img)
     if (metadataCandidate) {
-      applyMetadata(metadataCandidate, img)
-      finalizeSubmission(metadataCandidate, img)
+        applyMetadata(metadataCandidate, img)
+        finalizeSubmission(metadataCandidate, img)
     } else {
-      finalizeSubmission()
+        finalizeSubmission()
     }
-  }
+    }
 
   return (
     <div className="relative bg-gray-50 border border-gray-200 shadow-sm rounded-xl px-6 py-6 mb-12">

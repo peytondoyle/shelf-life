@@ -35,25 +35,21 @@ export default function ConfirmMetadataModal({
           </p>
 
           {imageOptions.length > 0 && (
-            <div className="grid grid-cols-3 gap-3 mb-4">
-              {imageOptions.map((img) => (
+            <div className="flex flex-wrap gap-4 justify-center mb-4">
+            {imageOptions.map((img) => (
                 <button
-                  key={img}
-                  type="button"
-                  onClick={() => onSelectImage(img)}
-                  className={`border rounded-md overflow-hidden transition ring-offset-2 ${
+                key={img}
+                type="button"
+                onClick={() => onSelectImage(img)}
+                className={`border rounded-md overflow-hidden transition ${
                     selectedImage === img
-                      ? 'ring-2 ring-blue-500 border-blue-500'
-                      : 'border-gray-300 hover:ring-1 hover:ring-gray-400'
-                  }`}
+                    ? 'ring-2 ring-blue-500 border-blue-500'
+                    : 'border-gray-300 hover:ring-1 hover:ring-gray-400'
+                }`}
                 >
-                  <img
-                    src={img}
-                    alt="Cover option"
-                    className="w-full h-auto object-contain rounded"
-                  />
+                <img src={img} alt="Cover option" className="w-[80px] h-auto object-contain rounded" />
                 </button>
-              ))}
+            ))}
             </div>
           )}
 

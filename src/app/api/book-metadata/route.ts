@@ -10,7 +10,7 @@ export async function GET(request: Request) {
     const params = new URLSearchParams()
     if (title) params.append('title', title)
     if (author) params.append('author', author)
-    params.append('limit', '10')
+    params.append('limit', '20')
     return `https://openlibrary.org/search.json?${params.toString()}`
   }
 
@@ -22,27 +22,48 @@ export async function GET(request: Request) {
       res = await fetch(buildUrl(title))
       data = await res.json()
     }
-    
-    const scoredDocs = data.docs.map((doc: any) => {
-    const score =
-        (doc.edition_count ?? 0) * 1.5 +
-        (doc.ratings_average ?? 0) * 2 +
-        (doc.has_fulltext ? 1 : 0) +
-        (doc.isbn?.length ?? 0) * 0.5
-    return { ...doc, _score: score }
-    }).sort((a: any, b: any) => b._score - a._score)
 
-    const imageOptions = scoredDocs
-    .filter((doc: any) => doc.cover_i)
-    .slice(0, 5)
-    .map((doc: any) => `https://covers.openlibrary.org/b/id/${doc.cover_i}-L.jpg`)
+    const queryWords = title.toLowerCase().split(/\s+/)
+
+    const scoredDocs = data.docs
+      .map((doc: any) => {
+        const titleTokens = (doc.title ?? '').toLowerCase().split(/\s+/)
+        const titleMatchScore = queryWords.reduce(
+          (acc, word) => acc + (titleTokens.includes(word) ? 1 : 0),
+          0
+        )
+
+        const score =
+          titleMatchScore * 2 +
+          (doc.edition_count ?? 0) * 0.5 +
+          (doc.ratings_average ?? 0) +
+          (doc.cover_i ? 1 : 0) + 
+          (Array.isArray(doc.language) && doc.language.includes('eng') ? 1 : 0)
+        
+          return { ...doc, _score: score }
+      })
+      .sort((a: any, b: any) => b._score - a._score)
+
+    const imageSet = new Set<number>()
+    const imageOptions: string[] = []
+
+    for (const doc of scoredDocs) {
+    if (doc.cover_i && !imageSet.has(doc.cover_i)) {
+        imageSet.add(doc.cover_i)
+        imageOptions.push(`https://covers.openlibrary.org/b/id/${doc.cover_i}-L.jpg`)
+    }
+    if (imageOptions.length >= 4) break
+    }
 
     const bestDoc = scoredDocs[0] ?? data.docs[0]
+
     const result = {
       title: bestDoc?.title ?? '',
       author: bestDoc?.author_name?.[0] ?? '',
       publishedYear: bestDoc?.first_publish_year ?? null,
-      coverImage: bestDoc?.cover_i ? `https://covers.openlibrary.org/b/id/${bestDoc.cover_i}-L.jpg` : null,
+      coverImage: bestDoc?.cover_i
+        ? `https://covers.openlibrary.org/b/id/${bestDoc.cover_i}-L.jpg`
+        : null,
       imageOptions,
     }
 
