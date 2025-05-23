@@ -1,5 +1,3 @@
-// src/types.ts
-
 export interface Book {
   id: string
   title: string
@@ -9,4 +7,5 @@ export interface Book {
   cover_image: string | null
   published_year: number | null
   created_at: string
+  average_score?: number | null
 }

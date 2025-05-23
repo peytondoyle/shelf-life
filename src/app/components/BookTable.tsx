@@ -1,15 +1,6 @@
 'use client'
 
-type Book = {
-  id: string
-  title: string
-  author: string
-  format: 'audiobook' | 'print'
-  status: 'read' | 'tbr' | 'dnf'
-  created_at: string
-  published_year?: number | null
-  cover_image?: string | null
-}
+import type { Book } from '@/types'
 
 interface BookTableProps {
   books: Book[]
@@ -49,6 +40,7 @@ export default function BookTable({ books, loading }: BookTableProps) {
                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Author</th>
                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Format</th>
                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Year</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Score</th>                
                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-600">Status</th>
               </tr>
             </thead>
@@ -71,6 +63,9 @@ export default function BookTable({ books, loading }: BookTableProps) {
                   <td className="px-4 py-3">{formatBadge(book.format)}</td>
                   <td className="px-4 py-3 text-sm text-gray-700">
                     {book.published_year ?? <span className="text-gray-400 italic">—</span>}
+                  </td>
+                  <td>
+                    {book.average_score != null ? `⭐ ${book.average_score.toFixed(1)}` : '—'}
                   </td>
                   <td className="px-4 py-3">{statusBadge(book.status)}</td>
                 </tr>
