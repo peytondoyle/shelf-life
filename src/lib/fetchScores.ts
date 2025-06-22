@@ -12,6 +12,8 @@ export type ScoreResult = {
 
 export async function fetchScores(title: string, author: string): Promise<ScoreResult> {
   // Replace with real API calls or mock values for now
+  console.log(title, author)
+  
   const scores: SiteScore[] = [
     { source: 'Goodreads', rating: 4.3, reviewCount: 1023 },
     { source: 'Amazon', rating: 4.6, reviewCount: 245 },

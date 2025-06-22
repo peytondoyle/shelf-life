@@ -33,8 +33,8 @@ export default function BookDetailPage() {
     if (!id) return
 
     const updatedBook = { ...localBook }
-    const parseNumber = (val: any) => {
-      const parsed = parseFloat(val)
+    const parseNumber = (val: string | number | null | undefined): number | null => {
+      const parsed = parseFloat(String(val))
       return isNaN(parsed) ? null : parsed
     }
 
