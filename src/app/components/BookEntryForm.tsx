@@ -97,11 +97,11 @@ export default function BookEntryForm({ onBookAdded }: { onBookAdded: () => void
       status,
       published_year: overrideMetadata?.publishedYear?.toString() || year || null,
       cover_image: image || overrideMetadata?.coverImage || cover || null,
+      average_score: overrideMetadata?.averageScore || null,
     }
 
     const { error } = await supabase.from('books').insert([book])
 
-    setShowOverlay(false)
     setIsSubmitting(false)
 
     if (error) {

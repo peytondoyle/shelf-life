@@ -1,6 +1,7 @@
 'use client'
 
 import type { Book } from '@/types'
+import { useRouter } from 'next/navigation'
 
 interface BookTableProps {
   books: Book[]
@@ -23,6 +24,7 @@ const statusBadge = (status: Book['status']) => {
 }
 
 export default function BookTable({ books, loading }: BookTableProps) {
+  const router = useRouter()
   return (
     <div className="mt-12">
       <h2 className="text-xl font-semibold mb-4 text-gray-900">📚 Your Books</h2>
@@ -46,25 +48,27 @@ export default function BookTable({ books, loading }: BookTableProps) {
             </thead>
             <tbody>
               {books.map((book, idx) => (
-                <tr key={book.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                <tr
+                  key={book.id}
+                  onClick={() => router.push(`/book/${book.id}`)}
+                  className={`cursor-pointer hover:bg-gray-100 transition ${
+                    idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'
+                  }`}
+                >
                   <td className="px-4 py-3">
-                    {book.cover_image ? (
+                    {book.cover_image && (
                       <img
                         src={book.cover_image}
                         alt={book.title}
                         className="w-10 h-auto rounded"
                       />
-                    ) : (
-                      <span className="text-gray-400 italic">—</span>
                     )}
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-800">{book.title}</td>
                   <td className="px-4 py-3 text-sm text-gray-700">{book.author}</td>
-                  <td className="px-4 py-3">{formatBadge(book.format)}</td>
-                  <td className="px-4 py-3 text-sm text-gray-700">
-                    {book.published_year ?? <span className="text-gray-400 italic">—</span>}
-                  </td>
-                  <td>
+                  <td className="px-4 py-3 text-sm">{formatBadge(book.format)}</td>
+                  <td className="px-4 py-3 text-sm">{book.published_year ?? '—'}</td>
+                  <td className="px-4 py-3 text-sm">
                     {book.average_score != null ? `⭐ ${book.average_score.toFixed(1)}` : '—'}
                   </td>
                   <td className="px-4 py-3">{statusBadge(book.status)}</td>
